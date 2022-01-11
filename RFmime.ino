@@ -5,7 +5,6 @@
 
 const byte ROWS = 4; //Numero de linhas
 const byte COLS = 4; //Numero de colunas
-
 //Mapeamento dos caracteres
 char hexaKeys[ROWS][COLS] = {
     {'1','2','3','A'},
@@ -13,206 +12,335 @@ char hexaKeys[ROWS][COLS] = {
     {'7','8','9','C'},
     {'*','0','#','D'}
 };
-
 byte colPins[COLS] = {6,5,4,3}; //Pinos referentes as colunas
 byte rowPins[ROWS] = {10,9,8,7}; //Pinos referentes as linhas
-
 Keypad keypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); //Inicializa a classe do teclado
+char key;
+
 LiquidCrystal_I2C lcd(0x27,16,2); //Inicializa a classe lcd
+int Menu = 0;
+byte lcdXCord;
+
 RCSwitch transmitter = RCSwitch(); //Inicializa a classe Switch transmitter
 RCSwitch receiver = RCSwitch(); //Inicializa a classe Switch receiver
-
 byte tPin = 11; //Pino do transmissor
 byte rPin = 0; //Pino do Receptor
 
-int menu = 0; //Menu Principal
+class Signal {
+    private:
+    public:
+    Signal();
+    void Send();
+    bool Receive();
+    unsigned long _Code;
+    unsigned int _Pl;
+    unsigned int _P;
+};
 
-//Variaveis para o sinal recebido
-unsigned long signalcode;
-unsigned int signalpl, signalp;
+//Funções da classe Signal
+Signal::Signal() {
+}
 
-void setup(){
+void Signal::Send() {
+    transmitter.enableTransmit(tPin);
+    transmitter.setProtocol(_P);
+    transmitter.setPulseLength(_Pl);
+    transmitter.send(_Code, 28);
+    transmitter.disableTransmit();
+}
+
+bool Signal::Receive() {
+        receiver.enableReceive(0);
+        while(!receiver.available()){
+            key = keypad.getKey();
+            if(key) {
+                Menu = 0;
+                receiver.disableReceive();
+                return 0;
+            }
+        }
+        _Code = receiver.getReceivedValue();
+        _Pl = receiver.getReceivedDelay();
+        _P = receiver.getReceivedProtocol();
+        receiver.resetAvailable();
+        receiver.disableReceive();
+        return 1;
+}
+
+Signal *Sinal;
+String code = "";
+String pl = "";
+String p = "";
+
+
+
+void setup() {
+    Serial.begin(9600);
+    Sinal = new Signal();
     lcd.init();
     lcd.backlight();
     lcd.clear();
+    delay(1000);
     lcd.print("---- RFmime ----");
     lcd.setCursor(0, 1);
-    for(int i; i < 16; i++){
+    for(int i; i < 16; i++) {
         lcd.print(".");
         delay(80);
     };
-}
-void loop(){
-    int subMenu = 0;
-    switch(menu){
-        case 0:{ //Menu principal
-        menu0(subMenu);
-        while(true){
-            char key = keypad.waitForKey();
-            if(key == '*' && subMenu > 0){
-                subMenu--;
-                menu0(subMenu);
-            } else if(key == '#'){
-                subMenu++;
-                menu0(subMenu);
-            } else if(key == 'A'){
-                menu = subMenu + 1;
-                break;
-            };
-        };
-        break;
-        }
-
-        case 1:{ //Menu enviar
-        char key;
-        String code, pl, prot;
-        //Código
-        menu1(subMenu);
-        while(code.length() < 9){
-            key = keypad.waitForKey();
-            code.concat(key);
-            lcd.write(key);
-        };
-        subMenu++;
-        delay(1000);
-        //Largura de pulso
-        menu1(subMenu);
-        while(pl.length() < 3){
-            key = keypad.waitForKey();
-            pl.concat(key);
-            lcd.write(key);
-        };
-        subMenu++;
-        delay(1000);
-        //Protocolo
-        menu1(subMenu);
-        while(prot.length() < 1){
-            key = keypad.waitForKey();
-            prot.concat(key);
-            lcd.write(key);
-        };
-        subMenu++;
-        delay(1000);
-        sendsignal(code.toInt(), pl.toInt(), prot.toInt());
-        menu1(subMenu);
-        menu = 0;
-        keypad.waitForKey();
-        break;
-        }
-
-        case 2:{ //Menu receber
-        subMenu = 0;
-        menu2(subMenu);
-        receivesignal();
-        subMenu++;
-        menu2(subMenu);
-        menu = 0;
-        keypad.waitForKey();
-        break;
-        }
-    }
+    attMenu(Menu);
 }
 
-void menu0(int subMenu){
-    switch(subMenu){
-        case 0:{
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("----- Send -----");
-        lcd.setCursor(0, 1);
-        lcd.print("    A-enter  #->");
-        break;
-        }
-
-        case 1:{
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("--- Receive ----");
-        lcd.setCursor(0, 1);
-        lcd.print("<-* A-enter     ");
-        break;
-        }
+void loop() {
+    delay(500);
+    key = keypad.getKey();
+    if(key) {
+        if(key == 'A') {
+            Menu = 1;
+            sendMenu();
+        }else if(key == 'B') {
+            Menu = -1;
+            receiveMenu();
+        };
+        attMenu(Menu);
     };
 }
-void menu1(int subMenu){
-    switch(subMenu){
-        case 0:{
-        lcd.clear();
-        lcd.setCursor(2, 0);
-        lcd.print("Send Signal");
-        lcd.setCursor(0, 1);
-        lcd.print("Code:");
-        break;
+
+void sendMenu() {
+    bool ready = 1;
+    lcdXCord = 7;
+    attMenu(Menu);
+    while(ready == 1) {
+        key = keypad.waitForKey();
+        if(key == 'B' && code.length() != 0) {
+            Serial.println("Tecla B pressionada");
+            lcdXCord--;
+            code.remove(code.length()-1);
+            lcd.setCursor(lcdXCord, 1);
+            lcd.print(" ");
+            lcd.setCursor(lcdXCord, 1);
+        }else if(key == 'A') {
+            ready = 0;
+            Sinal->_Code = code.toInt();
+        } else {
+            lcdXCord++;
+            code.concat(key);
+            lcd.write(key);
+        }
+    };
+    
+    Menu = 2;
+    ready = 1;
+    lcdXCord = 3;
+    attMenu(Menu);
+    while(ready == 1) {
+        key = keypad.waitForKey();
+        if(key == 'B' && code.length() != 0) {
+            lcdXCord--;
+            pl.remove(pl.length()-1);
+            lcd.setCursor(lcdXCord, 1);
+            lcd.print(" ");
+            lcd.setCursor(lcdXCord, 1);
+        }else if(key == 'A') {
+            ready = 0;
+            Sinal->_Pl = pl.toInt();
+        } else {
+            lcdXCord++;
+            pl.concat(key);
+            lcd.write(key);
+        }
+    };
+
+    Menu = 3;
+    ready = 1;
+    lcdXCord = 10;
+    attMenu(Menu);
+    while(ready == 1) {
+        key = keypad.waitForKey();
+        if(key == 'B' && code.length() != 0) {
+            lcdXCord--;
+            p.remove(p.length()-1);
+            lcd.setCursor(lcdXCord, 1);
+            lcd.print(" ");
+            lcd.setCursor(lcdXCord, 1);
+        }else if(key == 'A') {
+            ready = 0;
+            Sinal->_P = p.toInt();
+        } else {
+            lcdXCord++;
+            p.concat(key);
+            lcd.write(key);
+        }
+    };
+    enviar:
+    Sinal->Send();
+
+    Menu = 5;
+    attMenu(Menu);
+    delay(2000);
+
+    Menu = 4;
+    attMenu(Menu);
+    key = keypad.waitForKey();
+    if(key == 'A') {
+        goto enviar;
+    } else if(key == 'B') {
+        Menu = 0;
+        return;
+    };
+}
+
+void receiveMenu() {
+    bool ctrl;
+    lcdXCord = 7;
+    attMenu(Menu);
+    if(Sinal->Receive()) {
+        Menu = -2;
+        attMenu(Menu);
+        lcd.setCursor(7, 0);
+        lcd.print(String(Sinal->_Code));
+        lcd.setCursor(3, 1);
+        lcd.print(String(Sinal->_Pl));
+        lcd.setCursor(12, 1);
+        lcd.print(String(Sinal->_P));
+        keypad.waitForKey();
+
+        Menu = -3;
+        attMenu(Menu);
+        key = keypad.waitForKey();
+        if(key == 'A') {
+            enviar2:
+            Sinal->Send();
+            Menu = 5;
+            attMenu(Menu);
+            delay(2000);
+        } else if(key == 'B') {
+            Menu = 0;
+            return;
+        };
+
+        Menu = 4;
+        attMenu(Menu);
+        key = keypad.waitForKey();
+        if(key == 'A') {
+            goto enviar2;
+        } else if(key == 'B') {
+            Menu = 0;
+            return;
+        };
+    }else return;
+}
+
+void attMenu(int menu) {
+    switch(menu)
+    {
+        case -3:
+        {
+            lcd.clear();
+            lcd.setCursor(1, 0);
+            lcd.print("Enviar Sinal?");
+            lcd.setCursor(2, 1);
+            lcd.print("A - S  B - N");
+            break;
         }
 
-        case 1:{
-        lcd.clear();
-        lcd.setCursor(2, 0);
-        lcd.print("Send Signal");
-        lcd.setCursor(0, 1);
-        lcd.print("PL:");
-        break;
+        case -2:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Codigo:");
+            lcd.setCursor(0, 1);
+            lcd.print("LP:");
+            lcd.setCursor(10, 1);
+            lcd.print("P:");
+            break;
         }
 
-        case 2:{
-        lcd.clear();
-        lcd.setCursor(2, 0);
-        lcd.print("Send Signal");
-        lcd.setCursor(0, 1);
-        lcd.print("Protocol:");
-        break;
+        case -1:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Receber Sinal");
+            lcd.setCursor(0, 1);
+            lcd.print("Escutando...");
+            break;
         }
 
-        case 3:{
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("signal sent");
-        lcd.setCursor(0, 1);
-        lcd.print("successfully!");
-        break;
+        case 0:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("A - Enviar");
+            lcd.setCursor(0, 1);
+            lcd.print("B - Receber");
+            break;
+        }
+        
+        case 1:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Enviar Sinal");
+            lcd.setCursor(0, 1);
+            lcd.print("Codigo:");
+            break;
+        }
+
+        case 2:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Enviar Sinal");
+            lcd.setCursor(0, 1);
+            lcd.print("LP:");
+            break;
+        }
+
+        case 3:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Enviar Sinal");
+            lcd.setCursor(0, 1);
+            lcd.print("Protocolo:");
+            break;
+        }
+
+        case 4:
+        {
+            lcd.clear();
+            lcd.setCursor(4, 0);
+            lcd.print("Reenviar?");
+            lcd.setCursor(2, 1);
+            lcd.print("A - S  B - N");
+            break;
+        }
+
+        case 5:
+        {
+            lcd.clear();
+            lcd.setCursor(1, 0);
+            lcd.print("Sinal enviado");
+            lcd.setCursor(1, 1);
+            lcd.print("com sucesso!");
+            break;
+        }
+
+        case 6:
+        {
+            lcd.clear();
+            lcd.setCursor(1, 0);
+            lcd.print("Erro no envio!");
+            break;
+        }
+
+        default:
+        {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Erro!");
+            lcd.setCursor(0, 1);
+            lcd.print("Menu não existe");
+            break;
         }
     }
-}
-void menu2(int subMenu){
-    switch(subMenu){
-        case 0:{
-        lcd.clear();
-        lcd.print("Receiving Signal");
-        lcd.setCursor(0, 1);
-        lcd.print("Listening...");
-        break;
-        }
-
-        case 1:{
-        lcd.clear();
-        lcd.print("Code:");
-        lcd.print(signalcode);
-        lcd.setCursor(0, 1);
-        lcd.print("PL:");
-        lcd.print(signalpl);
-        lcd.setCursor(10, 1);
-        lcd.print("P:");
-        lcd.print(signalp);
-        break;
-        }
-    }
-}
-
-void sendsignal(unsigned long code, int pl, int p){
-    transmitter.enableTransmit(tPin);
-    transmitter.setProtocol(p);
-    transmitter.setPulseLength(pl);
-    transmitter.send(code, 28);
-    transmitter.disableTransmit();
-}
-void receivesignal(){
-    receiver.enableReceive(0);
-    while(!receiver.available()){
-        ;
-    }
-    signalcode = receiver.getReceivedValue();
-    signalpl = receiver.getReceivedDelay();
-    signalp = receiver.getReceivedProtocol();
-    receiver.resetAvailable();
-    receiver.disableReceive();
 }
