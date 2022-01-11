@@ -105,69 +105,70 @@ void loop() {
 }
 
 void sendMenu() {
+    //Menu Codigo
     bool ready = 1;
     lcdXCord = 7;
     attMenu(Menu);
     while(ready == 1) {
         key = keypad.waitForKey();
-        if(key == 'B' && code.length() != 0) {
+        if((key == 'A') && (code.length() != 0)) {
+            ready = 0;
+            Sinal->_Code = code.toInt();
+        }else if((key == 'B') && (code.length() != 0)) {
             lcdXCord--;
             code.remove(code.length()-1);
             lcd.setCursor(lcdXCord, 1);
             lcd.print(" ");
             lcd.setCursor(lcdXCord, 1);
-        }else if(key == 'A') {
-            ready = 0;
-            Sinal->_Code = code.toInt();
-        } else {
+        }else if(key != 'B') {
             lcdXCord++;
             code.concat(key);
             lcd.write(key);
-        }
+        };
     };
-    
+    //Menu Largura de pulso
     Menu = 2;
     ready = 1;
     lcdXCord = 3;
     attMenu(Menu);
     while(ready == 1) {
         key = keypad.waitForKey();
-        if(key == 'B' && code.length() != 0) {
+        if((key == 'A') && (pl.length() != 0)) {
+            ready = 0;
+            Sinal->_Pl = pl.toInt();
+        }else if((key == 'B') && (pl.length() != 0)) {
             lcdXCord--;
             pl.remove(pl.length()-1);
             lcd.setCursor(lcdXCord, 1);
             lcd.print(" ");
             lcd.setCursor(lcdXCord, 1);
-        }else if(key == 'A') {
-            ready = 0;
-            Sinal->_Pl = pl.toInt();
-        } else {
+        }else if(key != 'B') {
             lcdXCord++;
             pl.concat(key);
             lcd.write(key);
-        }
+        };
     };
-
+    //Menu protocolo
     Menu = 3;
     ready = 1;
     lcdXCord = 10;
     attMenu(Menu);
     while(ready == 1) {
         key = keypad.waitForKey();
-        if(key == 'B' && code.length() != 0) {
+        if((key == 'A') && (p.length() != 0)) {
+            ready = 0;
+            Sinal->_P = p.toInt();
+        }else if((key == 'B') && (p.length() != 0)) {
             lcdXCord--;
             p.remove(p.length()-1);
             lcd.setCursor(lcdXCord, 1);
             lcd.print(" ");
             lcd.setCursor(lcdXCord, 1);
-        }else if(key == 'A') {
-            ready = 0;
-            Sinal->_P = p.toInt();
-        } else {
+        }else if(key != 'B') {
             lcdXCord++;
             p.concat(key);
             lcd.write(key);
-        }
+        };
     };
     enviar:
     Sinal->Send();
