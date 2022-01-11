@@ -75,7 +75,6 @@ String p = "";
 
 
 void setup() {
-    Serial.begin(9600);
     Sinal = new Signal();
     lcd.init();
     lcd.backlight();
@@ -112,7 +111,6 @@ void sendMenu() {
     while(ready == 1) {
         key = keypad.waitForKey();
         if(key == 'B' && code.length() != 0) {
-            Serial.println("Tecla B pressionada");
             lcdXCord--;
             code.remove(code.length()-1);
             lcd.setCursor(lcdXCord, 1);
